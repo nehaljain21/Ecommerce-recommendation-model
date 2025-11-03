@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import numpy as np
 import tensorflow as tf
 import joblib
+import traceback
 
 app = FastAPI(title="E-Commerce Recommendation API")
 
@@ -19,15 +20,16 @@ class RecommendationRequest(BaseModel):
     category: list
     fit: list
 
+def safe_transform(encoder, values):
+    """Safely transform values; unseen values -> -1"""
+    return [
+        encoder.transform([v])[0] if v in encoder.classes_ else -1
+        for v in values
+    ]
+
 @app.post("/predict/")
 def recommend(data: RecommendationRequest):
     try:
-        def safe_transform(encoder, values):
-            return [
-                encoder.transform([v])[0] if v in encoder.classes_ else -1
-                for v in values
-            ]
-
         user_encoded = safe_transform(user_enc, [data.user_id])[0]
         item_encoded = safe_transform(item_enc, data.item_ids)
         category_encoded = safe_transform(category_enc, data.category)
@@ -45,7 +47,7 @@ def recommend(data: RecommendationRequest):
         preds = model.predict([user_input, item_input, category_input, fit_input]).flatten()
 
         top_indices = np.argsort(-preds)
-        top_items = [data.item_ids[i] for i in valid_idx[:5]]
+        top_items = [data.item_ids[valid_idx[i]] for i in top_indices[:5]]
 
         return {
             "user_id": data.user_id,
@@ -54,9 +56,9 @@ def recommend(data: RecommendationRequest):
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
-
+        print("Error Traceback:\n", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 @app.get("/")
 def home():
-    return {"message": "E-Commerce Recommendation API is running"}
+    return {"message": " E-Commerce Recommendation API is running!"}
