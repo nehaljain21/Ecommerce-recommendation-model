@@ -15,7 +15,7 @@ category_enc = joblib.load("category_encoder.pkl")
 fit_enc = joblib.load("fit_encoder.pkl")
 
 class RecommendationRequest(BaseModel):
-    user_id: str
+    user_id: int
     item_ids: list
     category: list
     fit: list
